@@ -5,24 +5,23 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collections;
+import java.util.Map;
 
 /** DP: Singleton class to manage database only one connection. */
 public final class DatabaseManager {
 
     private static final String DB_NAME = "2018_poei_java_hang";
 
-    private static final DatabaseManager instance = new DatabaseManager();
+    private static DatabaseManager instance;
+
+    private Map<Class<?>, Repository> repositories =
+            Collections.singletonMap(WordRepository.class, new WordRepository());
 
     private Connection connection;
 
     /** Singleton constructor. */
     private DatabaseManager() {
-        this.connection = new ConnectionCreator(DatabaseManager.DB_NAME)
-                .drop()
-                .create()
-                .build();
-
-        System.out.println(this.connection);
     }
 
     /* Free connection. */
@@ -34,7 +33,26 @@ public final class DatabaseManager {
 
     /** Returns the singleton instance. */
     public static DatabaseManager instance() {
+        if (DatabaseManager.instance == null) {
+            DatabaseManager.instance = new DatabaseManager();
+
+            DatabaseManager.instance.connection = new ConnectionCreator(DatabaseManager.DB_NAME)
+                    .drop()
+                    .create()
+                    .createWordTable(true)
+                    .build();
+        }
+
         return DatabaseManager.instance;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T getRepository(Class<?> repository) {
+        return (T) this.repositories.get(repository);
+    }
+
+    public static <T> T repository(Class<?> repository) {
+        return DatabaseManager.instance().getRepository(repository);
     }
 
     /** Returns a new created prepared statement. */

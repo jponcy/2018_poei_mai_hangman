@@ -4,6 +4,7 @@ package com.tactfactory.poei.database;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.stream.Stream;
 
 import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 
@@ -49,9 +50,14 @@ class ConnectionCreator {
         return connection;
     }
 
-    /** Do action on SGBDr without selected database (to CREATE/DROP databases for example). */
+    /** Does action on SGBDr without selected database (to CREATE/DROP databases for example). */
     private void actionWithoutUseDatabase(String sql) {
-        Connection connection = this.from();
+        this.actionOnDatabase(sql, null);
+    }
+
+    /** Does action on one database. */
+    private void actionOnDatabase(String sql, String dbName) {
+        Connection connection = this.from(dbName);
 
         try (Statement statement = connection.createStatement()) {
             statement.executeUpdate(sql);
@@ -64,11 +70,6 @@ class ConnectionCreator {
                 e.printStackTrace();
             }
         }
-    }
-
-    /** Returns connection to SGBDr not connecting to specific database. */
-    private Connection from() {
-        return this.from(null);
     }
 
     /** Returns connection to SGBDr using database with given name. */
@@ -89,8 +90,29 @@ class ConnectionCreator {
             connection = dataSource.getConnection();
         } catch (SQLException e) {
             e.printStackTrace();
+            System.exit(-2);
         }
 
         return connection;
+    }
+
+    public ConnectionCreator createWordTable(boolean addInitialData) {
+        this.actionOnDatabase("CREATE TABLE IF NOT EXISTS word ("
+                + "id INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
+                + "word VARCHAR(255) NOT NULL UNIQUE"
+                + ") engine=InnoDB;", this.dbName);
+
+        if (addInitialData) {
+            // FIXME: .
+            Stream<String> values = new InitialDataReader<String>("dictionary.txt")
+                    .get()
+                    .filter(elt -> elt != null && !"".equals(elt));
+
+            // TODO: Test me!
+            WordRepository repository = DatabaseManager.repository(WordRepository.class);
+            repository.create(values);
+        }
+
+        return this;
     }
 }
